@@ -1,53 +1,96 @@
 '''
   A game using panda 3d
 '''
+import pdb
 from math import pi, sin, cos
 
 from direct.showbase.ShowBase import ShowBase
+from pandac.PandaModules import ClockObject
 from direct.task import Task
 from direct.actor.Actor import Actor
 from direct.interval.IntervalGlobal import Sequence
+from direct.showbase.DirectObject import DirectObject
 from panda3d.core import Point3
 
 class FrogActor(Actor):
-    def __init__(self, x, y, z, scale, name=""):
-        # Load and transform the panda actor.
-        super(self, "frog")
-        pandaActor.setScale(scale, scale, scale)
+    def __init__(self, x, y, z, scale, clock, parent=None, name=""):
+        self.clock = clock
+        self.speed = 20
+        # Load
+        super(FrogActor, self).__init__("frog")
+        # attach to parent
+        if parent:
+            self.reparentTo(parent)
+        # scale
+        self.setScale(scale, scale, scale)
         # Loop its animation.
-        #if not z: pandaActor.loop("walk")
+        #if not z: frogActor.loop("walk")
 
-        # Create the four lerp intervals needed for the panda to
+        # Create the four lerp intervals needed for the frog to
         # walk back and forth.
-        pandaPosInterval1 = pandaActor.posInterval(2,
+        frogPosInterval1 = self.posInterval(2,
                                                         Point3(0+x, -10+y, 0+z),
                                                         startPos=Point3(0+x, 10+y, 0+z))
-        pandaPosInterval2 = pandaActor.posInterval(2,
+        frogPosInterval2 = self.posInterval(2,
                                                         Point3(0+x, 10+y, 0+z),
                                                         startPos=Point3(0+x, -10+y, 0+z))
-        # Hpr means turning. 
-        pandaHprInterval1 = pandaActor.hprInterval(3,
+        # Hpr means turning.
+        frogHprInterval1 = self.hprInterval(3,
                                                         Point3(180, 0, 0),
                                                         startHpr=Point3(0, 0, 0))
-        pandaHprInterval2 = pandaActor.hprInterval(3,
+        frogHprInterval2 = self.hprInterval(3,
                                                         Point3(0, 0, 0),
                                                         startHpr=Point3(180, 0, 0))
 
         # Create and play the sequence that coordinates the intervals.
         if not name:
             name = hash(self)
-        pandaPace = Sequence(pandaPosInterval1,
-                                  pandaHprInterval1,
-                                  pandaPosInterval2,
-                                  pandaHprInterval2,
-                                  name="pandaPace %s" % name)
-        pandaPace.loop()
-        
+        frogPace = Sequence(frogPosInterval1,
+                                  frogHprInterval1,
+                                  frogPosInterval2,
+                                  frogHprInterval2,
+                                  name="frogPace %s" % name)
+        #frogPace.loop()
+        self.setPos(x, y, z)
 
-class MyApp(ShowBase):
+    def go_forward(self, time_dt):
+        self.setY(self.getY()-(self.speed * globalClock.getDt()))
+
+    def go_backward(self, time_dt):
+        self.setY(self.getY()+(self.speed * globalClock.getDt()))
+
+    def turn_left(self, time_dt):
+        self.setH(self.getH()-(self.speed * 5 * globalClock.getDt()))
+
+    def turn_right(self, time_dt):
+        self.setH(self.getH()+(self.speed * 5 * globalClock.getDt()))
+
+
+class StartWorld(DirectObject):
+    pass
+
+
+class Game(ShowBase):
+    #def _set_key(self, key, value):
+        #self.key_map[key] = value
+
+    def _make_keymap(self):
+        return {"left":0, "right":0, "forward":0, "backward":0}
+
+    def _setup_keys(self):
+        self.accept('e', self.key_map.update, [{'forward': 1}])
+        self.accept('e-up', self.key_map.update, [{'forward': 0}])
+        self.accept('d', self.key_map.update, [{'backward': 1}])
+        self.accept('d-up', self.key_map.update, [{'backward': 0}])
+        self.accept('s', self.key_map.update, [{'left': 1}])
+        self.accept('s-up', self.key_map.update, [{'left': 0}])
+        self.accept('f', self.key_map.update, [{'right': 1}])
+        self.accept('f-up', self.key_map.update, [{'right': 0}])
 
     def __init__(self):
         ShowBase.__init__(self)
+
+        self.clock = ClockObject()
 
         # Disable the camera trackball controls.
         self.disableMouse()
@@ -57,15 +100,28 @@ class MyApp(ShowBase):
 
         # Set up actors
         scale = .09 -.0008
-        self.frogActor = FrogActor(0, 0, 0, scale)
-        frogActor.reparentTo(self.render)
-        self.frogActor = FrogActor(0, 0, 0, scale)
-        frogActor.reparentTo(self.render)
-        self.pandaActor2 = self.loadapanda(0,0,4)
-        self.pandaActor3 = self.loadapanda(0,0,7)
+        self.frogActor = FrogActor(0, 0, 0, scale, self.clock, self.render)
+        self.frogActor1 = FrogActor(0, 0, 4, scale*.9, self.clock, self.render)
+        self.frogActor2 = FrogActor(0, 0, 7, scale*.7, self.clock, self.render)
 
         # Add the _follow_player procedure to the task manager.
         self.taskMgr.add(self._follow_player, "_follow_player")
+        self.taskMgr.add(self._go_forward, "_go_f")
+
+        # set up keys
+        self.key_map = self._make_keymap()
+        self._setup_keys()
+
+    def _go_forward(self, task):
+        if self.key_map['forward']:
+            self.frogActor.go_forward(task.time)
+        if self.key_map['backward']:
+            self.frogActor.go_backward(task.time)
+        if self.key_map['left']:
+            self.frogActor.turn_left(task.time)
+        if self.key_map['right']:
+            self.frogActor.turn_right(task.time)
+        return Task.cont
 
     def _set_up_environment(self):
         # Set up the environment model.
@@ -80,7 +136,7 @@ class MyApp(ShowBase):
         return environ
 
     def _follow_player(self, task):
-        self.camera.reparentTo(self.pandaActor)
+        self.camera.reparentTo(self.frogActor)
         self.camera.setPos(-20,190,150)
         self.camera.setHpr(180, -20, 0)
         #self.camera.setPos(self.pandaActor.getX()-40, self.pandaActor.getY()-40, 50)
@@ -95,5 +151,5 @@ class MyApp(ShowBase):
         self.camera.setHpr(angleDegrees, -20, 0)
         return Task.cont
 
-app = MyApp()
+app = Game()
 app.run()
