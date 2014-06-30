@@ -15,7 +15,7 @@ from panda3d.core import Point3
 class FrogActor(Actor):
     def __init__(self, x, y, z, scale, clock, parent=None, name=""):
         self.clock = clock
-        self.speed = 20
+        self.speed = 180
         # Load
         super(FrogActor, self).__init__("frog")
         # attach to parent
@@ -54,16 +54,16 @@ class FrogActor(Actor):
         self.setPos(x, y, z)
 
     def go_forward(self, time_dt):
-        self.setY(self.getY()-(self.speed * globalClock.getDt()))
+        self.setPos(self, 0, -self.speed * globalClock.getDt(), 0)
 
     def go_backward(self, time_dt):
-        self.setY(self.getY()+(self.speed * globalClock.getDt()))
+        self.setPos(self, 0, self.speed * globalClock.getDt(), 0)
 
     def turn_left(self, time_dt):
-        self.setH(self.getH()-(self.speed * 5 * globalClock.getDt()))
+        self.setH(self.getH()+(self.speed * globalClock.getDt()))
 
     def turn_right(self, time_dt):
-        self.setH(self.getH()+(self.speed * 5 * globalClock.getDt()))
+        self.setH(self.getH()-(self.speed * globalClock.getDt()))
 
 
 class StartWorld(DirectObject):
@@ -104,6 +104,8 @@ class Game(ShowBase):
         self.frogActor1 = FrogActor(0, 0, 4, scale*.9, self.clock, self.render)
         self.frogActor2 = FrogActor(0, 0, 7, scale*.7, self.clock, self.render)
 
+        self.inverse_turning = False
+
         # Add the _follow_player procedure to the task manager.
         self.taskMgr.add(self._follow_player, "_follow_player")
         self.taskMgr.add(self._go_forward, "_go_f")
@@ -115,12 +117,20 @@ class Game(ShowBase):
     def _go_forward(self, task):
         if self.key_map['forward']:
             self.frogActor.go_forward(task.time)
+            self.inverse_turning = False
         if self.key_map['backward']:
             self.frogActor.go_backward(task.time)
+            self.inverse_turning = True
         if self.key_map['left']:
-            self.frogActor.turn_left(task.time)
+            if self.inverse_turning:
+                self.frogActor.turn_right(task.time)
+            else:
+                self.frogActor.turn_left(task.time)
         if self.key_map['right']:
-            self.frogActor.turn_right(task.time)
+            if self.inverse_turning:
+                self.frogActor.turn_left(task.time)
+            else:
+                self.frogActor.turn_right(task.time)
         return Task.cont
 
     def _set_up_environment(self):
